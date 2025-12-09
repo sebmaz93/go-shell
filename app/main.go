@@ -7,6 +7,59 @@ import (
 	"strings"
 )
 
+type Command struct {
+	Name        string
+	Description string
+	Handler     func(args ...string) error
+}
+
+var builtInCommands map[string]Command
+
+func init() {
+	builtInCommands = map[string]Command{
+		"exit": {
+			Name:        "exit",
+			Description: "Exit the app.",
+			Handler:     exitHandler,
+		},
+		"echo": {
+			Name:        "echo",
+			Description: "Echo the command arguments.",
+			Handler:     echoHandler,
+		},
+		"type": {
+			Name:        "type",
+			Description: "Describe a command.",
+			Handler:     typeHandler,
+		},
+	}
+}
+
+func exitHandler(args ...string) error {
+	os.Exit(0)
+	return nil
+}
+
+func echoHandler(args ...string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing args, command is: echo <args>\n")
+	}
+	fmt.Printf("%s\n", strings.Join(args, " "))
+	return nil
+}
+
+func typeHandler(args ...string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing args, command is: type <args>\n")
+	}
+	if _, ok := builtInCommands[args[0]]; ok {
+		fmt.Printf("%s is a shell builtin\n", args[0])
+		return nil
+	}
+	fmt.Printf("%s: not found\n", strings.Join(args, " "))
+	return nil
+}
+
 func main() {
 	for {
 		fmt.Print("$ ")
@@ -16,18 +69,18 @@ func main() {
 			os.Exit(1)
 		}
 		command = strings.TrimSpace(command)
-		commands := strings.Fields(command)
-		if commands[0] == "exit" {
-			os.Exit(0)
+		tokens := strings.Fields(command)
+		name := tokens[0]
+		args := tokens[1:]
+
+		cmd, ok := builtInCommands[name]
+		if !ok {
+			fmt.Printf("%s: command not found\n", name)
+			continue
 		}
-		if commands[0] == "echo" {
-			if len(commands) > 1 {
-				fmt.Printf("%s\n", strings.Join(commands[1:], " "))
-			} else {
-				fmt.Println("missing args.")
-			}
-		} else {
-			fmt.Printf("%s: command not found\n", command)
+
+		if err := cmd.Handler(args...); err != nil {
+			fmt.Fprint(os.Stderr, "Error: ", err)
 		}
 	}
 }
