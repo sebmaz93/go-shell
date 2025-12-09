@@ -16,9 +16,18 @@ func main() {
 			os.Exit(1)
 		}
 		command = strings.TrimSpace(command)
-		if command == "exit" {
+		commands := strings.Fields(command)
+		if commands[0] == "exit" {
 			os.Exit(0)
 		}
-		fmt.Printf("%s: command not found\n", command)
+		if commands[0] == "echo" {
+			if len(commands) > 1 {
+				fmt.Printf("%s\n", strings.Join(commands[1:], " "))
+			} else {
+				fmt.Println("missing args.")
+			}
+		} else {
+			fmt.Printf("%s: command not found\n", command)
+		}
 	}
 }
