@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 type Command struct {
 	Name        string
 	Description string
-	Handler     func(args ...string) error
+	Handler     func(args, dirs []string) error
 }
 
 var builtInCommands map[string]Command
@@ -35,12 +36,12 @@ func init() {
 	}
 }
 
-func exitHandler(args ...string) error {
+func exitHandler(args, dirs []string) error {
 	os.Exit(0)
 	return nil
 }
 
-func echoHandler(args ...string) error {
+func echoHandler(args, dirs []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("missing args, command is: echo <args>\n")
 	}
@@ -48,19 +49,42 @@ func echoHandler(args ...string) error {
 	return nil
 }
 
-func typeHandler(args ...string) error {
+func typeHandler(args, dirs []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing args, command is: type <args>\n")
+		return fmt.Errorf("missing args, command is: type <args>")
 	}
-	if _, ok := builtInCommands[args[0]]; ok {
-		fmt.Printf("%s is a shell builtin\n", args[0])
+
+	cmd := args[0]
+
+	if _, ok := builtInCommands[cmd]; ok {
+		fmt.Printf("%s is a shell builtin\n", cmd)
 		return nil
 	}
-	fmt.Printf("%s: not found\n", strings.Join(args, " "))
+
+	for _, dir := range dirs {
+		fullPath := filepath.Join(dir, cmd)
+
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			continue
+		}
+
+		mode := info.Mode()
+
+		if !mode.IsDir() && mode&0111 != 0 {
+			fmt.Printf("%s is %s\n", cmd, fullPath)
+			return nil
+		}
+	}
+
+	fmt.Printf("%s: not found\n", cmd)
 	return nil
 }
 
 func main() {
+	paths := os.Getenv("PATH")
+	dirs := filepath.SplitList(paths)
+
 	for {
 		fmt.Print("$ ")
 		command, err := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -79,7 +103,7 @@ func main() {
 			continue
 		}
 
-		if err := cmd.Handler(args...); err != nil {
+		if err := cmd.Handler(args, dirs); err != nil {
 			fmt.Fprint(os.Stderr, "Error: ", err)
 		}
 	}
